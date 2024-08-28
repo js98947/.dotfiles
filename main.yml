@@ -147,4 +147,12 @@
       args:
         executable: /bin/bash
 
+        # New task to run the atuin_install script
+    - name: Run atuin_install script
+      shell: |
+        {{ user_home }}/bin/atuin_install
+      args:
+        executable: /bin/bash
+      when: ansible_env.HOME is defined
+
    
