@@ -147,12 +147,17 @@
       args:
         executable: /bin/bash
 
-        # New task to run the atuin_install script
-    - name: Run atuin_install script
+     # New task to install Atuin
+    - name: Run Atuin setup script
+      shell: "bash <(curl --proto '=https' --tlsv1.2 -sSf https://setup.atuin.sh)"
+      args:
+        executable: /bin/bash
+
+    # New task to source Atuin environment
+    - name: Source Atuin environment
       shell: |
-        {{ user_home }}/bin/atuin_install
+        source {{ user_home }}/.atuin/env
       args:
         executable: /bin/bash
       when: ansible_env.HOME is defined
-
    
