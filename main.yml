@@ -1,0 +1,150 @@
+---
+- name: Prepare local machine with necessary packages and dotfiles
+  hosts: localhost
+  become: yes
+  vars:
+    ansible_user: "{{ lookup('env', 'USER') }}"
+    user_home: "{{ lookup('env', 'HOME') }}"
+  tasks:
+
+
+    - name: Install Rust
+      get_url:
+        url: https://sh.rustup.rs
+        dest: /tmp/rustup.sh
+        mode: '0755'
+
+    - name: Run Rust setup script
+      command: /bin/bash /tmp/rustup.sh -y
+
+    - name: Verify Rust installation
+      stat:
+        path: "{{ user_home }}/.cargo/env"
+      register: cargo_env_file
+
+    - name: Source Cargo environment
+      shell: |
+        source {{ user_home }}/.cargo/env
+      args:
+        executable: /bin/bash
+      when: cargo_env_file.stat.exists
+
+    - name: Update apt package list
+      apt:
+        update_cache: yes
+
+    - name: Install Curl
+      apt:
+        name: curl
+        state: present
+
+    - name: Install Stow
+      apt:
+        name: stow
+        state: present
+
+    - name: Add NeoVim repository
+      apt_repository:
+        repo: ppa:neovim-ppa/unstable
+        state: present
+
+    - name: Install NeoVim and related packages
+      apt:
+        name:
+          - make
+          - gcc
+          - ripgrep
+          - unzip
+          - xclip
+          - neovim
+        state: present
+
+    - name: Install Tmux
+      apt:
+        name: tmux
+        state: present
+
+    - name: Install OpenTofu
+      get_url:
+        url: https://get.opentofu.org/install-opentofu.sh
+        dest: /tmp/install-opentofu.sh
+        mode: '0755'
+
+    - name: Run OpenTofu install script
+      command: /bin/bash /tmp/install-opentofu.sh --install-method deb
+
+    - name: Install yq using snap
+      snap:
+        name: yq
+        state: present
+
+    - name: Install fontconfig for Nerd Fonts
+      apt:
+        name: fontconfig
+        state: present
+
+    - name: Create fonts directory
+      file:
+        path: "{{ user_home }}/.local/share/fonts"
+        state: directory
+        mode: '0755'
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+
+    - name: Install Nerd Font 0xProto
+      get_url:
+        url: https://github.com/ryanoasis/nerd-fonts/releases/download/v3.2.1/0xProto.zip
+        dest: "{{ user_home }}/.local/share/fonts/0xProto.zip"
+
+    - name: Unzip Nerd Font 0xProto
+      unarchive:
+        src: "{{ user_home }}/.local/share/fonts/0xProto.zip"
+        dest: "{{ user_home }}/.local/share/fonts/"
+        remote_src: yes
+        mode: '0755'
+
+    - name: Install Nerd Font JetBrainsMono
+      get_url:
+        url: https://github.com/ryanoasis/nerd-fonts/releases/download/v3.2.1/JetBrainsMono.zip
+        dest: "{{ user_home }}/.local/share/fonts/JetBrainsMono.zip"
+
+    - name: Unzip Nerd Font JetBrainsMono
+      unarchive:
+        src: "{{ user_home }}/.local/share/fonts/JetBrainsMono.zip"
+        dest: "{{ user_home }}/.local/share/fonts/"
+        remote_src: yes
+        mode: '0755'
+
+    - name: Refresh font cache
+      shell: fc-cache -fv
+      args:
+        executable: /bin/bash
+
+    - name: Install Portal
+      shell: curl -sL portal.spatiumportae.com | sudo bash
+      args:
+        executable: /bin/bash
+
+    - name: Install Docker
+      apt:
+        name: docker.io
+        state: present
+
+    - name: Install Docker Compose
+      apt:
+        name: docker-compose
+        state: present
+
+    - name: Remove existing .bashrc file
+      file:
+        path: "{{ user_home }}/.bashrc"
+        state: absent
+
+    - name: Set up dotfiles using GNU Stow
+      shell: |
+        cd {{ user_home }}/dotfiles
+        stow .
+      args:
+        executable: /bin/bash
+
+
