@@ -147,4 +147,16 @@
       args:
         executable: /bin/bash
 
+    - name: Install Atuin
+    - name: Download Atuin setup script
+      get_url:
+        url: https://setup.atuin.sh
+        dest: /tmp/setup_atuin.sh
+        mode: '0755'
+
+    - name: Run Atuin setup script
+      shell: /bin/bash /tmp/setup_atuin.sh
+      args:
+        executable: /bin/bash
+
 
