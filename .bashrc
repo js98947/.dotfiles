@@ -125,6 +125,5 @@ fi
 export KUBECONFIG=/etc/rancher/rke2/rke2.yaml
 export PATH=${PATH}:/var/lib/rancher/rke2/bin
 
-. "$HOME/.atuin/bin/env"
 
 [[ -f ~/.bash-preexec.sh ]] && source ~/.bash-preexec.sh
