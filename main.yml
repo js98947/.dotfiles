@@ -147,29 +147,4 @@
       args:
         executable: /bin/bash
 
-     # Task to install Atuin
-    - name: Download Atuin setup script
-      get_url:
-        url: https://setup.atuin.sh
-        dest: /tmp/setup_atuin.sh
-        mode: '0755'
-
-    - name: Run Atuin setup script
-      shell: /bin/bash /tmp/setup_atuin.sh
-      args:
-        executable: /bin/bash
-
-    - name: Source Atuin environment
-      shell: source {{ user_home }}/.atuin/env
-      args:
-        executable: /bin/bash
-      when: ansible_env.HOME is defined
-
-    - name: Add Atuin environment source to bashrc
-      lineinfile:
-        path: "{{ user_home }}/.bashrc"
-        line: 'source {{ user_home }}/.atuin/env'
-        create: yes
-        state: present
-        insertafter: EOF
-      when: ansible_env.HOME is defined
+  
