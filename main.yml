@@ -161,28 +161,28 @@
 
 
           # Task to install Atuin
-    - name: Download Atuin setup script
-      get_url:
-        url: https://setup.atuin.sh
-        dest: /tmp/setup_atuin.sh
-        mode: '0755'
+    #- name: Download Atuin setup script
+    #  get_url:
+    #    url: https://setup.atuin.sh
+    #    dest: /tmp/setup_atuin.sh
+    #    mode: '0755'
 
-    - name: Run Atuin setup script with debug output
-      shell: /bin/bash /tmp/setup_atuin.sh
-      args:
-        executable: /bin/bash
-      register: atuin_install_result
-      ignore_errors: true
+    #- name: Run Atuin setup script with debug output
+    #  shell: /bin/bash /tmp/setup_atuin.sh
+    #  args:
+    #    executable: /bin/bash
+    #  register: atuin_install_result
+    #  ignore_errors: true
 
-    - name: Pause for a few seconds to allow installation to finish
-      pause:
-        seconds: 10  # Adjust the number of seconds as needed
+    #- name: Pause for a few seconds to allow installation to finish
+    #  pause:
+    #    seconds: 10  # Adjust the number of seconds as needed
 
 
-    - name: Print Atuin install output
-      debug:
-        msg: "{{ atuin_install_result.stdout | default('') }}{{ atuin_install_result.stderr | default('') }}"
-      when: atuin_install_result is defined
+    #- name: Print Atuin install output
+    #  debug:
+    #    msg: "{{ atuin_install_result.stdout | default('') }}{{ atuin_install_result.stderr | default('') }}"
+    #  when: atuin_install_result is defined
 
     # Verify Atuin installation by checking its executable
     #- name: Check if Atuin is installed
