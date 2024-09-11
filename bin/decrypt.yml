@@ -1,0 +1,55 @@
+---
+- name: Decrypt .dir files using age tool with a wait between each file
+  hosts: localhost
+  become: yes
+  vars:
+    decryption_directory: "./"
+    key_file: "/home/serveradmin/.age/key"
+    wait_time: 5  # time to wait (in seconds) between decrypting each file
+
+  tasks:
+
+    - name: Ensure decryption key file exists
+      stat:
+        path: "{{ key_file }}"
+      register: key_check
+
+    - name: Fail if decryption key is not found
+      fail:
+        msg: "Decryption key {{ key_file }} not found"
+      when: not key_check.stat.exists
+
+    - name: Find all files with .dir extension in /tmp/foo
+      find:
+        paths: "{{ decryption_directory }}"
+        patterns: "*.dir"
+      register: dir_files
+
+    - name: Fail if no .dir files are found
+      fail:
+        msg: "No .dir files found in {{ decryption_directory }}"
+      when: dir_files.matched == 0
+
+    - name: Decrypt each .dir file using the age tool and wait between each decryption
+      shell: "age --decrypt -i {{ key_file }} {{ item.path }} | tar xvz"
+      args:
+        chdir: "{{ decryption_directory }}"
+      loop: "{{ dir_files.files }}"
+      ignore_errors: yes
+      register: decryption_output
+      async: "{{ wait_time }}"  # The max time the task should take, before running in background
+      poll: 0  # Start in the background immediately, allowing a wait between tasks
+
+    - name: Wait for the decryption of each file to complete
+      async_status:
+        jid: "{{ item.ansible_job_id }}"
+      loop: "{{ decryption_output.results }}"
+      retries: 5
+      delay: "{{ wait_time }}"  # Delay before checking the status again
+      register: job_result
+      until: job_result.finished
+
+   # - name: Handle failed decryption attempts
+   #   fail:
+   #     msg: "Failed to decrypt file: {{ item.item.path }}"
+   #   when: item.rc != 0
