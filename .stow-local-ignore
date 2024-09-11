@@ -1,2 +1,7 @@
 \.bin
 \.main.yml
+
+
+^/README.*
+^/LICENSE.*
+^/COPYING
