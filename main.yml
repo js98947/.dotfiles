@@ -185,35 +185,35 @@
       when: atuin_install_result is defined
 
     # Verify Atuin installation by checking its executable
-    - name: Check if Atuin is installed
-      shell: command -v atuin
-      register: atuin_check
-      changed_when: false
-      failed_when: atuin_check.rc != 0
+    #- name: Check if Atuin is installed
+    #  shell: command -v atuin
+    #  register: atuin_check
+    #  changed_when: false
+    #  failed_when: atuin_check.rc != 0
 
-    - name: Print Atuin check output
-      debug:
-        msg: "Atuin installation check: {{ atuin_check.stdout }}"
+    #- name: Print Atuin check output
+    #  debug:
+    #    msg: "Atuin installation check: {{ atuin_check.stdout }}"
 
     # Verify Atuin environment setup
-    - name: Verify Atuin environment
-      stat:
-        path: "{{ user_home }}/.atuin/env"
-      register: atuin_env_file
+    #- name: Verify Atuin environment
+    #  stat:
+    #    path: "{{ user_home }}/.atuin/env"
+    #  register: atuin_env_file
 
-    - name: Source Atuin environment if it exists
-      shell: source {{ user_home }}/.atuin/env
-      args:
-        executable: /bin/bash
-      when: atuin_env_file.stat.exists
+    #- name: Source Atuin environment if it exists
+    #  shell: source {{ user_home }}/.atuin/env
+    #  args:
+    #    executable: /bin/bash
+    #  when: atuin_env_file.stat.exists
 
-    - name: Add Atuin environment source to bashrc if it exists
-      lineinfile:
-        path: "{{ user_home }}/.bashrc"
-        line: 'source {{ user_home }}/.atuin/env'
-        create: yes
-        state: present
-        insertafter: EOF
-      when: atuin_env_file.stat.exists
+    #- name: Add Atuin environment source to bashrc if it exists
+    #  lineinfile:
+    #    path: "{{ user_home }}/.bashrc"
+    #    line: 'source {{ user_home }}/.atuin/env'
+    #    create: yes
+    #    state: present
+    #    insertafter: EOF
+    #  when: atuin_env_file.stat.exists
 
   
