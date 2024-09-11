@@ -174,9 +174,9 @@
       register: atuin_install_result
       ignore_errors: true
 
-     - name: Pause for a few seconds to allow installation to finish
-       pause:
-         seconds: 10  # Adjust the number of seconds as needed
+    - name: Pause for a few seconds to allow installation to finish
+      pause:
+        seconds: 10  # Adjust the number of seconds as needed
 
 
     - name: Print Atuin install output
