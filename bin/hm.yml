@@ -1,0 +1,89 @@
+---
+- name: Setup and Run Docker Containers for Portainer, Prometheus, and Grafana
+  hosts: localhost
+  become: yes
+  tasks:
+    # Task to ensure Docker is installed
+    - name: Ensure Docker is installed
+      apt:
+        name: docker.io
+        state: present
+        update_cache: yes
+
+    # Task to pull the latest Portainer Docker image
+    - name: Pull Portainer Docker image
+      docker_image:
+        name: portainer/portainer-ce
+        source: pull
+        tag: latest
+
+    # Task to pull the latest Prometheus Docker image
+    - name: Pull Prometheus Docker image
+      docker_image:
+        name: prom/prometheus
+        source: pull
+        tag: latest
+
+    # Task to pull the latest Grafana Docker image
+    - name: Pull Grafana Docker image
+      docker_image:
+        name: grafana/grafana
+        source: pull
+        tag: latest
+
+    # Task to create the Prometheus configuration directory
+    - name: Create Prometheus configuration directory
+      file:
+        path: /etc/prometheus
+        state: directory
+        mode: '0755'
+
+    # Task to create the prometheus.yml configuration file
+    - name: Create prometheus.yml file
+      copy:
+        dest: /etc/prometheus/prometheus.yml
+        content: |
+          global:
+            scrape_interval: 15s
+          scrape_configs:
+            - job_name: 'prometheus'
+              static_configs:
+                - targets: ['localhost:9090']
+        mode: '0644'
+
+    # Task to run the Portainer container
+    - name: Run Portainer container
+      docker_container:
+        name: portainer
+        image: portainer/portainer-ce:latest
+        state: started
+        restart_policy: always
+        ports:
+          - "9000:9000"
+        volumes:
+          - /var/run/docker.sock:/var/run/docker.sock
+          - portainer_data:/data
+
+    # Task to run the Prometheus container
+    - name: Run Prometheus container
+      docker_container:
+        name: prometheus
+        image: prom/prometheus:latest
+        state: started
+        restart_policy: always
+        ports:
+          - "9090:9090"
+        volumes:
+          - /etc/prometheus:/etc/prometheus
+
+    # Task to run the Grafana container
+    - name: Run Grafana container
+      docker_container:
+        name: grafana
+        image: grafana/grafana:latest
+        state: started
+        restart_policy: always
+        ports:
+          - "3000:3000"
+        volumes:
+          - grafana_data:/var/lib/grafana
