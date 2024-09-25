@@ -7,12 +7,11 @@
     user_home: "{{ lookup('env', 'HOME') }}"
   tasks:
 
+ - name: rustup
+      apt:
+        name: rustip
+        state: present
 
-    - name: Install Rust
-      get_url:
-        url: https://sh.rustup.rs
-        dest: /tmp/rustup.sh
-        mode: '0755'
 
     - name: Run Rust setup script
       command: /bin/bash /tmp/rustup.sh -y
@@ -59,7 +58,9 @@
       apt_repository:
         repo: ppa:neovim-ppa/unstable
         state: present
-
+################################################################################################
+######################################Nvimand tmux################################################
+################################################################################################
     - name: Install NeoVim and related packages
       apt:
         name:
@@ -136,6 +137,11 @@
       shell: curl -sL portal.spatiumportae.com | sudo bash
       args:
         executable: /bin/bash
+################################################################################################
+################################################################################################
+################################################################################################
+
+
 
     - name: Install Docker
       apt:
