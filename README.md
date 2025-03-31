@@ -39,7 +39,8 @@ sudo apt install tmux
 ```
 curl --proto '=https' --tlsv1.2 -fsSL https://get.opentofu.org/install-opentofu.sh -o install-opentofu.sh
 ```
-# Alternatively: wget --secure-protocol=TLSv1_2 --https-only https://get.opentofu.org/install-opentofu.sh -O install-opentofu.sh
+
+## Alternatively: "wget --secure-protocol=TLSv1_2 --https-only https://get.opentofu.org/install-opentofu.sh -O install-opentofu.sh"
 
 # Give it execution permissions:
 ```
@@ -97,7 +98,7 @@ wget -P ~/.local/share/fonts https://github.com/ryanoasis/nerd-fonts/releases/do
 After Install pull down the dotfiles to your $HOME dir using git 
 
 ```
- git clone https://github.com/js98947/dotfiles.git
+ git clone https://github.com/js98947/.dotfiles.git
  cd dotfiles
 ```
 
