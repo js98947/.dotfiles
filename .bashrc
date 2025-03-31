@@ -127,3 +127,9 @@ export PATH=${PATH}:/var/lib/rancher/rke2/bin
 
 
 [[ -f ~/.bash-preexec.sh ]] && source ~/.bash-preexec.sh
+
+. "$HOME/.atuin/bin/env"
+
+[[ -f ~/.bash-preexec.sh ]] && source ~/.bash-preexec.sh
+eval "$(atuin init bash)"
+. "$HOME/.cargo/env"
