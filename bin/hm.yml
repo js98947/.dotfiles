@@ -51,18 +51,34 @@
                 - targets: ['localhost:9090']
         mode: '0644'
 
+    # Task to create the loki-config.yml configuration file
+# main.yml
+
+    - name: Ensure Loki configuration directory exists
+      file:
+        path: /etc/loki
+        state: directory
+        mode: '0755'
+
+    - name: Create loki-config.yml
+      copy:
+        dest: /etc/loki/loki-config.yml
+
+
+
+
     # Task to run the Portainer container
-    - name: Run Portainer container
-      docker_container:
-        name: portainer
-        image: portainer/portainer-ce:latest
-        state: started
-        restart_policy: always
-        ports:
-          - "9000:9000"
-        volumes:
-          - /var/run/docker.sock:/var/run/docker.sock
-          - portainer_data:/data
+#    - name: Run Portainer container
+#      docker_container:
+#        name: portainer
+#        image: portainer/portainer-ce:latest
+#        state: started
+#        restart_policy: always
+#        ports:
+#          - "9000:9000"
+#        volumes:
+#          - /var/run/docker.sock:/var/run/docker.sock
+#          - portainer_data:/data
 
     # Task to run the Prometheus container
     - name: Run Prometheus container
@@ -87,3 +103,16 @@
           - "3000:3000"
         volumes:
           - grafana_data:/var/lib/grafana
+
+    # Task to run the Grafana-loki container
+    - name: Run loki container
+      docker_container:
+        name: loki
+        image: grafana/loki:latest
+        state: started
+        restart_policy: always
+        ports:
+          - "3100:3100"
+       # volumes:
+       #   - grafana_data:/var/lib/grafana
+

@@ -3,7 +3,7 @@
   hosts: localhost
   become: yes
   vars:
-    decryption_directory: "./"
+    decryption_directory: "{{ lookup('env', 'PWD') }}"  # Get the current working directory
     key_file: "/home/serveradmin/.age/key"
     wait_time: 5  # time to wait (in seconds) between decrypting each file
 

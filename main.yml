@@ -7,12 +7,11 @@
     user_home: "{{ lookup('env', 'HOME') }}"
   tasks:
 
+    - name: Install rustup
+      apt:
+        name: rustup
+        state: present
 
-    - name: Install Rust
-      get_url:
-        url: https://sh.rustup.rs
-        dest: /tmp/rustup.sh
-        mode: '0755'
 
     - name: Run Rust setup script
       command: /bin/bash /tmp/rustup.sh -y
