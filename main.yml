@@ -7,9 +7,15 @@
     user_home: "{{ lookup('env', 'HOME') }}"
   tasks:
 
+<<<<<<< HEAD
     - name: Install rustup
       apt:
         name: rustup
+=======
+ - name: rustup
+      apt:
+        name: rustip
+>>>>>>> refs/remotes/origin/master
         state: present
 
 
@@ -58,7 +64,9 @@
       apt_repository:
         repo: ppa:neovim-ppa/unstable
         state: present
-
+################################################################################################
+######################################Nvimand tmux################################################
+################################################################################################
     - name: Install NeoVim and related packages
       apt:
         name:
@@ -135,6 +143,11 @@
       shell: curl -sL portal.spatiumportae.com | sudo bash
       args:
         executable: /bin/bash
+################################################################################################
+################################################################################################
+################################################################################################
+
+
 
     - name: Install Docker
       apt:
