@@ -1,55 +1,37 @@
 ---
-- name: Decrypt .dir files using age tool with a wait between each file
+- name: Decrypt, extract, and clean up backup files
   hosts: localhost
-  become: yes
+  gather_facts: no
   vars:
-    decryption_directory: "{{ lookup('env', 'PWD') }}"  # Get the current working directory
-    key_file: "/home/serveradmin/.age/key"
-    wait_time: 5  # time to wait (in seconds) between decrypting each file
+    backup_dir: "{{ lookup('env', 'PWD') }}"  # Get the current directory from environment variables
+    encrypt_pass_file: "$HOME/.dotfiles/.env/encrypt_pass"
 
   tasks:
-
-    - name: Ensure decryption key file exists
-      stat:
-        path: "{{ key_file }}"
-      register: key_check
-
-    - name: Fail if decryption key is not found
-      fail:
-        msg: "Decryption key {{ key_file }} not found"
-      when: not key_check.stat.exists
-
-    - name: Find all files with .dir extension in /tmp/foo
+    - name: Find encrypted backup files
       find:
-        paths: "{{ decryption_directory }}"
-        patterns: "*.dir"
-      register: dir_files
+        paths: "{{ backup_dir }}"
+        patterns: "*.dir.tar.gz"
+      register: encrypted_files
 
-    - name: Fail if no .dir files are found
-      fail:
-        msg: "No .dir files found in {{ decryption_directory }}"
-      when: dir_files.matched == 0
+    - name: Decrypt each backup file
+      command:
+        cmd: "ansible-vault decrypt {{ item.path }} --vault-password-file {{ encrypt_pass_file }}"
+      with_items: "{{ encrypted_files.files }}"
+      loop_control:
+        label: "{{ item.path }}"
 
-    - name: Decrypt each .dir file using the age tool and wait between each decryption
-      shell: "age --decrypt -i {{ key_file }} {{ item.path }} | tar xvz"
-      args:
-        chdir: "{{ decryption_directory }}"
-      loop: "{{ dir_files.files }}"
-      ignore_errors: yes
-      register: decryption_output
-      async: "{{ wait_time }}"  # The max time the task should take, before running in background
-      poll: 0  # Start in the background immediately, allowing a wait between tasks
+    - name: Extract each archive
+      command:
+        cmd: "tar -xzf {{ item.path }} -C {{ backup_dir }}"
+      with_items: "{{ encrypted_files.files }}"
+      loop_control:
+        label: "{{ item.path }}"
 
-    - name: Wait for the decryption of each file to complete
-      async_status:
-        jid: "{{ item.ansible_job_id }}"
-      loop: "{{ decryption_output.results }}"
-      retries: 5
-      delay: "{{ wait_time }}"  # Delay before checking the status again
-      register: job_result
-      until: job_result.finished
+    - name: Delete the decrypted archive
+      file:
+        path: "{{ item.path }}"
+        state: absent
+      with_items: "{{ encrypted_files.files }}"
+      loop_control:
+        label: "{{ item.path }}"
 
-   # - name: Handle failed decryption attempts
-   #   fail:
-   #     msg: "Failed to decrypt file: {{ item.item.path }}"
-   #   when: item.rc != 0
