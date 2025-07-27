@@ -1,0 +1,21 @@
+---
+- name: Decrypt, extract, and clean up backup files
+  hosts: localhost
+  gather_facts: no
+  vars:
+    backup_dir: "{{ lookup('env', 'PWD') }}"  # Get the current directory from environment variables
+    encrypt_pass_file: "$HOME/.dotfiles/.env/encrypt_pass"
+
+  tasks:
+    - name: Find encrypted backup files
+      find:
+        paths: "{{ backup_dir }}"
+        patterns: "*"
+      register: encrypted_files
+
+    - name: Decrypt each backup file
+      command:
+        cmd: "ansible-vault decrypt {{ item.path }} --vault-password-file {{ encrypt_pass_file }}"
+      with_items: "{{ encrypted_files.files }}"
+      loop_control:
+        label: "{{ item.path }}"

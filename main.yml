@@ -7,20 +7,20 @@
     user_home: "{{ lookup('env', 'HOME') }}"
   tasks:
 
-
-    - name: rustup
-      apt:
-        name: rustip
-        state: present
-
-
-    - name: Run Rust setup script
-      command: /bin/bash /tmp/rustup.sh -y
-
-    - name: Verify Rust installation
-      stat:
-        path: "{{ user_home }}/.cargo/env"
-      register: cargo_env_file
+#
+#    - name: rustup
+#      apt:
+#        name: rustup
+#        state: present
+#
+#
+#    - name: Run Rust setup script
+#      command: /bin/bash /tmp/rustup.sh -y
+#
+#    - name: Verify Rust installation
+#      stat:
+#        path: "{{ user_home }}/.cargo/env"
+#      register: cargo_env_file
 
 
     - name: Pause for a few seconds to allow installation to finish
@@ -87,10 +87,10 @@
     - name: Run OpenTofu install script
       command: /bin/bash /tmp/install-opentofu.sh --install-method deb
 
-    - name: Install yq using snap
-      snap:
-        name: yq
-        state: present
+#    - name: Install yq using snap
+#      snap:
+#        name: yq
+#        state: present
 
     - name: Install fontconfig for Nerd Fonts
       apt:

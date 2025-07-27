@@ -133,3 +133,24 @@ export PATH=${PATH}:/var/lib/rancher/rke2/bin
 [[ -f ~/.bash-preexec.sh ]] && source ~/.bash-preexec.sh
 eval "$(atuin init bash)"
 . "$HOME/.cargo/env"
+
+# Created by `pipx` on 2025-04-06 20:18:09
+export PATH="$PATH:/home/serveradmin/.local/bin"
+export KUBECONFIG=/etc/rancher/rke2/rke2.yaml
+export PATH=${PATH}:/var/lib/rancher/rke2/bin
+alias k=kubectl
+export KUBECONFIG=/etc/rancher/rke2/rke2.yaml
+export PATH=${PATH}:/var/lib/rancher/rke2/bin
+alias k=kubectl
+export KUBECONFIG=/etc/rancher/rke2/rke2.yaml
+export PATH=${PATH}:/var/lib/rancher/rke2/bin
+alias k=kubectl
+export KUBECONFIG=/etc/rancher/rke2/rke2.yaml
+export PATH=${PATH}:/var/lib/rancher/rke2/bin
+alias k=kubectl
+export KUBECONFIG=/etc/rancher/rke2/rke2.yaml
+export PATH=${PATH}:/var/lib/rancher/rke2/bin
+alias k=kubectl
+export KUBECONFIG=/etc/rancher/rke2/rke2.yaml
+export PATH=${PATH}:/var/lib/rancher/rke2/bin
+alias k=kubectl

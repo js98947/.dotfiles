@@ -1,0 +1,264 @@
+#!/usr/bin/env -S just --justfile
+set export
+set shell := ["bash", "-uc"]
+
+yaml       := justfile_directory() + "/yaml"
+scripts    := justfile_directory() + "/scripts"
+
+browse      := if os() == "linux" { "xdg-open "} else { "open" }
+copy        := if os() == "linux" { "xsel -ib"} else { "pbcopy" }
+
+export bucket_random_name           := `head -n 4096 /dev/urandom | openssl sha1 | tail -c 10`
+export gcp_provider_version         := env_var_or_default('GCP_PROVIDER', "v1.11.2")
+export azure_provider_version       := env_var_or_default('AZURE_PROVIDER', "v0.36.0")
+export aws_provider_version         := "v0.43.0"
+export k8s_version                  := "1.27.0" # currently not used
+export random_suffix                := `echo $RANDOM`
+export base64encoded_azure_creds    := `base64 ~/crossplane-azure-provider-key.json | tr -d "\n"`
+export base64encoded_gcp_creds      := `base64 ~/gcp-creds-platform.json | tr -d "\n"`
+export base64encoded_aws_creds      := `cat ~/.aws/credentials | grep -i 609897127049_AdministratorAccess -A3 | sed 's/609897127049_AdministratorAccess/default/' | base64 | tr -d "\n"`
+export gcp_project_id               := "piotr-development"
+export xp_namespace                 := "crossplane-system"
+                                    
+# this list of available targets
+# targets marked with * are main targets
+default:
+  @just --list --unsorted
+  echo $bucket_random_name
+
+generate_bucket_random_name:
+    #!/bin/bash
+    RANDOM_SUFFIX=$(head -n 4096 /dev/urandom | openssl sha1 | tail -c 10)
+    yq -i e ".metadata.annotations.[\"crossplane.io/external-name\"] = \"sample-deleteme-$RANDOM_SUFFIX\"" /home/decoder/dev/dotfiles/scripts/uxp-setup/yaml/bucket.yaml
+
+
+_check_mandatory_programs:
+  @if ! type "kind" > /dev/null ;then echo "Please install KIND" && exit 1; fi
+  @if ! type "kubectl" > /dev/null; then echo "Please install kubectl" && exit 1; fi
+ 
+# * setup kind cluster with ArgoCD, kubernetes and help providers
+setup_infra xp-version='stable': _check_mandatory_programs setup_kind (setup_crossplane xp-version) setup_k8s setup_helm enable_metrics_server
+setup_infra_forkless xp-version='stable': _check_mandatory_programs setup_kind (setup_crossplane xp-version) enable_metrics_server
+
+# enable metrics server
+enable_metrics_server:
+ @kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+ @kubectl patch deployment metrics-server -n kube-system \
+  --type='json' \
+  -p='[{"op": "add", "path": "/spec/template/spec/containers/0/args/-", "value": "--kubelet-insecure-tls=true"}]'
+
+# disable metrics server
+disable_metrics_server:
+ @kubectl delete -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+
+# Check if crossplane composition functions installed properly
+check_xfn:
+   @echo "Checking if crossplane composition functions installed properly"
+   @echo ""
+   @kubectl -n {{xp_namespace}} logs -l app=crossplane
+
+setup_gcp_configuration:
+  #!/usr/bin/env bash
+  cat <<'EOF' | kubectl apply -f -
+  apiVersion: pkg.crossplane.io/v1
+  kind: Configuration
+  metadata:
+    name: platform-ref-gcp
+  spec:
+    package: xpkg.upbound.io/upbound/platform-ref-gcp:v0.9.0
+  EOF
+
+# setup kind cluster with UXP
+setup_kind:
+  #!/usr/bin/env bash
+  echo "Creating kind cluster"
+  set -euo pipefail
+
+  cluster="control-plane"
+
+  echo "Creating kind cluster - ${cluster}"
+  envsubst < kind-config.yaml | kind create cluster --config=- --wait 3m 
+  kind get kubeconfig --name "${cluster}"
+  kubectl config use-context kind-"${cluster}"
+
+# setup kind cluster with UXP
+setup_crossplane xp-version='stable':
+  #!/usr/bin/env bash
+  echo "Debug: xp-version is {{xp-version}}"
+  if kubectl get namespace {{xp_namespace}} > /dev/null 2>&1; then
+    echo "Namespace {{xp_namespace}} already exists"
+  else
+    echo "Creating namespace {{xp_namespace}}"
+    kubectl create namespace {{xp_namespace}}
+  fi
+
+  if [[ {{xp-version}} == "stable" ]]; then
+    echo "Installing crossplane version {{xp-version}}"
+    helm repo add crossplane-stable https://charts.crossplane.io/stable
+    helm repo update
+    helm upgrade --install crossplane \
+       --namespace {{xp_namespace}} crossplane-stable/crossplane \
+       --set args='{"--enable-usages"}'
+  elif [[ {{xp-version}} == "master" ]]; then
+    echo "Installing crossplane version {{xp-version}}"
+    helm repo add crossplane-master https://charts.crossplane.io/master --force-update
+    helm repo update
+    helm upgrade --install crossplane crossplane-master/crossplane \
+    --namespace crossplane-system \
+    --devel
+  else 
+    echo "Unrecognizable version"
+    exit 1
+  fi
+  kubectl wait --for condition=Available=True --timeout=300s deployment/crossplane --namespace {{xp_namespace}}
+
+# deploy sample function
+deploy_function:
+  #!/usr/bin/env bash
+  cat <<EOF | kubectl apply -f -
+    apiVersion: pkg.crossplane.io/v1beta1
+    kind: Function
+    metadata:
+      name: function-patch-and-transform
+    spec:
+      package: xpkg.upbound.io/crossplane-contrib/function-patch-and-transform:v0.2.1
+  EOF
+
+# setup provider Kubernetes
+setup_k8s:
+  #!/usr/bin/env bash
+  echo "Setting up provider kubernetes"
+  set -euo pipefail
+
+  kubectl apply -f {{yaml}}/kubernetes-provider.yaml
+  kubectl wait --for condition=healthy --timeout=300s provider.pkg.crossplane.io/provider-kubernetes
+  SA=$(kubectl -n {{xp_namespace}} get sa -o name | grep provider-kubernetes | sed -e 's|serviceaccount\/|{{xp_namespace}}:|g')
+  kubectl create clusterrolebinding provider-kubernetes-admin-binding --clusterrole cluster-admin --serviceaccount="${SA}"
+  kubectl apply -f {{yaml}}/kubernetes-provider-config.yaml
+
+# setup provider Helm
+setup_helm:
+  #!/usr/bin/env bash
+  echo "Setting up provider Helm"
+  set -euo pipefail
+
+  kubectl apply -f {{yaml}}/helm-provider.yaml
+  kubectl wait --for condition=healthy --timeout=300s provider.pkg.crossplane.io/provider-helm
+  SA=$(kubectl -n {{xp_namespace}} get sa -o name | grep provider-helm | sed -e 's|serviceaccount\/|{{xp_namespace}}:|g')
+  kubectl create clusterrolebinding provider-helm-admin-binding --clusterrole cluster-admin --serviceaccount="${SA}"
+  sleep 3
+  kubectl apply -f {{yaml}}/helm-provider-config.yaml
+
+# deploy monitoring stack
+deploy_monitoring:
+  @helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+  helm repo update
+  @helm upgrade --install kube-prometheus-stack prometheus-community/kube-prometheus-stack -n prometheus \
+   --set namespaceOverride=prometheus \
+   --set grafana.namespaceOverride=prometheus \
+   --set grafana.defaultDashboardsEnabled=true \
+   --set kube-state-metrics.namespaceOverride=prometheus \
+   --set prometheus-node-exporter.namespaceOverride=prometheus --create-namespace
+  @kubectl -n prometheus patch prometheus kube-prometheus-stack-prometheus --type merge --patch '{"spec":{"enableAdminAPI":true}}'
+
+# port forward grafana, user: admin, pw: prom-operator
+help_launch_grafana:
+  nohup {{browse}} http://localhost:3000 >/dev/null 2>&1
+  kubectl port-forward -n prometheus svc/kube-prometheus-stack-grafana 3000:80
+
+# port forward prometheus
+help_port_forward_prometheus:
+  kubectl port-forward -n prometheus svc/kube-prometheus-stack-prometheus 9090:9090 &
+
+# port forward prometheus and launch local browser
+help_launch_prometheus:
+  nohup {{browse}} http://localhost:9090 >/dev/null 2>&1
+  kubectl port-forward -n prometheus svc/kube-prometheus-stack-prometheus 9090:9090
+
+# get node ip
+help_copy_node_ip:
+  #!/usr/bin/env bash
+  node_ip=$(kubectl get nodes -o wide | awk ' FNR == 2 {print $6}')
+  echo "$node_ip" | {{copy}}
+
+# get prometheus query for memory
+help_copy_prometheus_memory_metric prov:
+  #!/usr/bin/env bash
+  pod=$(kubectl -n crossplane-system get pod -l pkg.crossplane.io/provider=provider-{{prov}} -o name)
+  pod="${pod##*/}"
+  sum="sum(node_namespace_pod_container:container_memory_working_set_bytes{pod="\"$pod\"", namespace="\"upbound-system"\"})"
+  echo -n "$sum" | {{copy}}
+
+# get prometheus clusterIP for prometheus configuration
+help_copy_prometheus_url:
+  #!/usr/bin/env bash
+  ip=$(kubectl get svc -n prometheus kube-prometheus-stack-prometheus -o jsonpath='{.spec.clusterIP}')
+  echo http://"$ip":9090 | {{copy}}
+
+# setup AWS official provider
+setup_aws_provider:
+  @echo "Setting up AWS official provider"
+  @kubectl config use-context kind-control-plane
+  @envsubst < {{yaml}}/aws-provider.yaml | kubectl apply -f - 
+  @kubectl wait --for condition=healthy --timeout=300s provider/provider-aws
+
+# setup AWS providerConfig
+setup_aws_provider_config:
+  @echo "Setting up AWS providerConfig"
+  @kubectl delete secret -n {{xp_namespace}} aws-creds --ignore-not-found
+  @kubectl config use-context kind-control-plane
+  @{{scripts}}/setup_aws_secret.sh
+  @envsubst < {{yaml}}/aws-provider-config.yaml | kubectl apply -f - 
+
+# setup AWS official provider
+setup_aws:
+  @echo "Setting up AWS official provider"
+  @kubectl delete secret -n {{xp_namespace}} aws-creds --ignore-not-found
+  @__swapcreds.sh
+  @echo $base64encoded_aws_creds
+  @kubectl config use-context kind-control-plane
+  @envsubst < {{yaml}}/aws-provider.yaml | kubectl apply -f - 
+  @kubectl wait --for condition=healthy --timeout=300s provider/provider-aws
+  @envsubst < {{yaml}}/aws-provider-config.yaml | kubectl apply -f - 
+
+# setup Azure official provider
+setup_azure:
+  @echo "Setting up Azure official provider"
+  @kubectl config use-context kind-control-plane
+  @envsubst < {{yaml}}/azure-provider.yaml | kubectl apply -f - 
+  @kubectl wait --for condition=healthy --timeout=300s provider/provider-azure
+  @envsubst < {{yaml}}/azure-provider-config.yaml | kubectl apply -f - 
+
+# setup GCP official provider config
+setup_gcp_secret:
+  @echo "Setup GCP secret"
+  @kubectl create secret generic gcp-secret -n crossplane-system --from-file=creds=/home/decoder/gcp-creds-platform.json
+
+# setup GCP official provider
+setup_gcp:
+  just setup_gcp_secret
+  @echo "Setting up GCP official provider"
+  @kubectl config use-context kind-control-plane
+  @envsubst < {{yaml}}/gcp-provider.yaml | kubectl apply -f - 
+  @envsubst < {{yaml}}/gcp-provider-storage.yaml | kubectl apply -f -
+  @kubectl wait --for condition=healthy --timeout=300s provider/provider-gcp
+  @envsubst < {{yaml}}/gcp-provider-config.yaml | kubectl apply -f - 
+
+# deploy a sample bucket to verify the setup
+test_cluster:
+  @echo "Test if cluster setup succesfull by depoloying a sample bucket"
+  @envsubst < {{yaml}}/bucket.yaml | kubectl apply -f -
+
+# delete GCP test bucket
+delete_bucket:
+  @echo "Delete sample bucket if present"
+  @envsubst < {{yaml}}/bucket.yaml | kubectl delete --ignore-not-found -f - 
+
+# * delete KIND cluster and clearnup cloud resources
+teardown: 
+  @echo "Delete KIND cluster"
+  @kind delete clusters control-plane
+
+# watch crossplane resources
+watch RESOURCE='crossplane':
+  watch kubectl get {{RESOURCE}}
