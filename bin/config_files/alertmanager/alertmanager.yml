@@ -1,0 +1,66 @@
+global:
+  resolve_timeout: 5m
+
+route:
+  # Default receiver
+  receiver: 'default'
+
+  # Group alerts by their alertname, and send a single notification if multiple alerts are active
+  group_by: ['alertname']
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 1h
+
+  # Define routes based on alert labels
+  routes:
+    - match:
+        severity: critical
+      receiver: 'critical_team'
+      # Only for critical alerts, define further grouping and timing
+      group_wait: 10s
+      group_interval: 2m
+      repeat_interval: 30m
+
+    - match:
+        severity: warning
+      receiver: 'warning_team'
+
+receivers:
+  - name: 'default'
+    email_configs:
+      - to: 'oncall@example.com'
+        from: 'alertmanager@example.com'
+        smarthost: 'smtp.example.com:587'
+        auth_username: 'alertmanager'
+        auth_password: 'password'
+        auth_secret: 'secret'
+        auth_identity: 'alertmanager@example.com'
+
+  - name: 'critical_team'
+    email_configs:
+      - to: 'critical@example.com'
+        from: 'alertmanager@example.com'
+        smarthost: 'smtp.example.com:587'
+        auth_username: 'alertmanager'
+        auth_password: 'password'
+        auth_secret: 'secret'
+        auth_identity: 'alertmanager@example.com'
+
+  - name: 'warning_team'
+    email_configs:
+      - to: 'warning@example.com'
+        from: 'alertmanager@example.com'
+        smarthost: 'smtp.example.com:587'
+        auth_username: 'alertmanager'
+        auth_password: 'password'
+        auth_secret: 'secret'
+        auth_identity: 'alertmanager@example.com'
+
+inhibit_rules:
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['alertname', 'instance']
+
+
