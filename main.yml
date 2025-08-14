@@ -1,226 +1,60 @@
 ---
-- name: Prepare local machine with necessary packages and dotfiles
+- name: Setup Development Environment
   hosts: localhost
   become: yes
   vars:
-    ansible_user: "{{ lookup('env', 'USER') }}"
-    user_home: "{{ lookup('env', 'HOME') }}"
+    user_home: "{{ ansible_env.HOME }}"
+
   tasks:
-
-#
-#    - name: rustup
-#      apt:
-#        name: rustup
-#        state: present
-#
-#
-#    - name: Run Rust setup script
-#      command: /bin/bash /tmp/rustup.sh -y
-#
-#    - name: Verify Rust installation
-#      stat:
-#        path: "{{ user_home }}/.cargo/env"
-#      register: cargo_env_file
-
-
-    - name: Pause for a few seconds to allow installation to finish
-      pause:
-        seconds: 10  # Adjust the number of seconds as needed
-
-
-    - name: Source Cargo environment
-      shell: |
-        source {{ user_home }}/.cargo/env
-      args:
-        executable: /bin/bash
-      when: cargo_env_file.stat.exists
-
-    - name: Update apt package list
+    - name: Update apt cache
       apt:
         update_cache: yes
 
-    - name: Install Curl
-      apt:
-        name: curl
-        state: present
-
-    - name: Install Age
-      apt:
-        name: age
-        state: present
-
-
-    - name: Install Stow
-      apt:
-        name: stow
-        state: present
-
-    - name: Add NeoVim repository
-      apt_repository:
-        repo: ppa:neovim-ppa/unstable
-        state: present
-################################################################################################
-######################################Nvimand tmux################################################
-################################################################################################
-    - name: Install NeoVim and related packages
+    - name: Install basic development packages
       apt:
         name:
-          - make
-          - gcc
-          - ripgrep
+          - git
+          - curl
+          - build-essential
+          - cmake
           - unzip
-          - xclip
-          - neovim
+          - pkg-config
+          - python3
+          - python3-pip
+          - ninja-build
         state: present
 
-    - name: Install Tmux
-      apt:
-        name: tmux
-        state: present
+    - name: Install or update Neovim from GitHub (source build)
+      git:
+        repo: https://github.com/neovim/neovim.git
+        dest: "{{ user_home }}/.local/src/neovim"
+        version: stable
+        update: yes
 
-    - name: Install OpenTofu
-      get_url:
-        url: https://get.opentofu.org/install-opentofu.sh
-        dest: /tmp/install-opentofu.sh
-        mode: '0755'
-
-    - name: Run OpenTofu install script
-      command: /bin/bash /tmp/install-opentofu.sh --install-method deb
-
-#    - name: Install yq using snap
-#      snap:
-#        name: yq
-#        state: present
-
-    - name: Install fontconfig for Nerd Fonts
-      apt:
-        name: fontconfig
-        state: present
-
-    - name: Create fonts directory
-      file:
-        path: "{{ user_home }}/.local/share/fonts"
-        state: directory
-        mode: '0755'
-        owner: "{{ ansible_user }}"
-        group: "{{ ansible_user }}"
-
-    - name: Install Nerd Font 0xProto
-      get_url:
-        url: https://github.com/ryanoasis/nerd-fonts/releases/download/v3.2.1/0xProto.zip
-        dest: "{{ user_home }}/.local/share/fonts/0xProto.zip"
-
-    - name: Unzip Nerd Font 0xProto
-      unarchive:
-        src: "{{ user_home }}/.local/share/fonts/0xProto.zip"
-        dest: "{{ user_home }}/.local/share/fonts/"
-        remote_src: yes
-        mode: '0755'
-
-    - name: Install Nerd Font JetBrainsMono
-      get_url:
-        url: https://github.com/ryanoasis/nerd-fonts/releases/download/v3.2.1/JetBrainsMono.zip
-        dest: "{{ user_home }}/.local/share/fonts/JetBrainsMono.zip"
-
-    - name: Unzip Nerd Font JetBrainsMono
-      unarchive:
-        src: "{{ user_home }}/.local/share/fonts/JetBrainsMono.zip"
-        dest: "{{ user_home }}/.local/share/fonts/"
-        remote_src: yes
-        mode: '0755'
-
-    - name: Refresh font cache
-      shell: fc-cache -fv
-      args:
-        executable: /bin/bash
-
-    - name: Install Portal
-      shell: curl -sL portal.spatiumportae.com | sudo bash
-      args:
-        executable: /bin/bash
-################################################################################################
-################################################################################################
-################################################################################################
-
-
-
-    - name: Install Docker
-      apt:
-        name: docker.io
-        state: present
-
-    - name: Install Docker Compose
-      apt:
-        name: docker-compose
-        state: present
-
-    - name: Remove existing .bashrc file
-      file:
-        path: "{{ user_home }}/.bashrc"
-        state: absent
-
-    - name: Set up dotfiles using GNU Stow
+    - name: Build Neovim
       shell: |
-        cd {{ user_home }}/dotfiles
-        stow .
+        make CMAKE_BUILD_TYPE=Release
+        sudo make install
       args:
-        executable: /bin/bash
+        chdir: "{{ user_home }}/.local/src/neovim"
 
+    - name: Install Node.js (needed for some Neovim plugins)
+      apt:
+        name: nodejs
+        state: present
 
-          # Task to install Atuin
-    #- name: Download Atuin setup script
-    #  get_url:
-    #    url: https://setup.atuin.sh
-    #    dest: /tmp/setup_atuin.sh
-    #    mode: '0755'
+    - name: Install npm
+      apt:
+        name: npm
+        state: present
 
-    #- name: Run Atuin setup script with debug output
-    #  shell: /bin/bash /tmp/setup_atuin.sh
-    #  args:
-    #    executable: /bin/bash
-    #  register: atuin_install_result
-    #  ignore_errors: true
+    - name: Install ripgrep (for telescope.nvim)
+      apt:
+        name: ripgrep
+        state: present
 
-    #- name: Pause for a few seconds to allow installation to finish
-    #  pause:
-    #    seconds: 10  # Adjust the number of seconds as needed
+    - name: Install fd (for telescope.nvim)
+      apt:
+        name: fd-find
+        state: present
 
-
-    #- name: Print Atuin install output
-    #  debug:
-    #    msg: "{{ atuin_install_result.stdout | default('') }}{{ atuin_install_result.stderr | default('') }}"
-    #  when: atuin_install_result is defined
-
-    # Verify Atuin installation by checking its executable
-    #- name: Check if Atuin is installed
-    #  shell: command -v atuin
-    #  register: atuin_check
-    #  changed_when: false
-    #  failed_when: atuin_check.rc != 0
-
-    #- name: Print Atuin check output
-    #  debug:
-    #    msg: "Atuin installation check: {{ atuin_check.stdout }}"
-
-    # Verify Atuin environment setup
-    #- name: Verify Atuin environment
-    #  stat:
-    #    path: "{{ user_home }}/.atuin/env"
-    #  register: atuin_env_file
-
-    #- name: Source Atuin environment if it exists
-    #  shell: source {{ user_home }}/.atuin/env
-    #  args:
-    #    executable: /bin/bash
-    #  when: atuin_env_file.stat.exists
-
-    #- name: Add Atuin environment source to bashrc if it exists
-    #  lineinfile:
-    #    path: "{{ user_home }}/.bashrc"
-    #    line: 'source {{ user_home }}/.atuin/env'
-    #    create: yes
-    #    state: present
-    #    insertafter: EOF
-    #  when: atuin_env_file.stat.exists
-
-  
